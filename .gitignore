@@ -222,5 +222,8 @@ __marimo__/
 
 #Ignorer vores Datamappe
 Data/
+Data_300/
+Data_Full/
+Data_UR/
 
 .DS_Store
