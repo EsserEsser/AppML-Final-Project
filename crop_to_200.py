@@ -18,7 +18,7 @@ from pathlib import Path
 
 from PIL import Image
 
-TARGET_W, TARGET_H = 200, 200
+TARGET_W, TARGET_H = 600, 600
 JPG_SUFFIXES = {".jpg", ".jpeg"}
 
 
