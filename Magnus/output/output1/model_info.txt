@@ -1,7 +1,0 @@
-First model. 
-
-Ran for 50 epochs on full dataset with 0 population images scaled to the same number of populated images.
-
-Claudes out of the box learning rates.
-
-
