@@ -313,6 +313,8 @@ def main():
     r_arch = {"num_conv_blocks": 4, "base_filters": 64, "filter_scale": 2.0, "double_conv": True, "fc_hidden": 256, "use_extra_fc": True}
     r_hp   = {"lr": 9e-5, "weight_decay": 4e-4, "batch_size": 32, "dropout": 0.26}
 
+
+
     def set_seed(seed=SEED):
         random.seed(seed)
         np.random.seed(seed)
@@ -370,6 +372,10 @@ def main():
     train_reg_samples = [s for s in train_samples if s[1] > 0]
     val_reg_samples = [s for s in val_samples if s[1] > 0]
 
+    n_neg = len([s for s in train_samples if s[1] == 0])
+    n_pos = len([s for s in train_samples if s[1] > 0])
+    pos_weight = torch.tensor([n_neg / n_pos]).to(device) #Punishes false negatives more than false positives instead of balancing dataset
+
     ds_class_train = PeopleCountDataset(samples=train_samples, transform=train_transform, mode="classify")
     ds_class_val   = PeopleCountDataset(samples=val_samples, transform=val_transform, mode="classify")
     ds_reg_train = PeopleCountDataset(samples=train_reg_samples, transform=train_transform, mode="regress")
@@ -394,7 +400,7 @@ def main():
             bz = trial.suggest_categorical("batch_size", [4, 16, 32, 64]) if RUN_JOINT_SEARCH_C else c_hp["batch_size"]
 
             m = TunableCNN(nb, bf, fs, dc, fc, xf, dr).to(device)
-            crit = BCEWithLogitsLoss()
+            crit = BCEWithLogitsLoss(pos_weight=pos_weight)
             opt = optim.AdamW(m.parameters(), lr=lr, weight_decay=wd)
             
 
@@ -428,7 +434,7 @@ def main():
     # Train Final Classifier
     print(f"\nTraining Final Classifier with: Batch {c_hp['batch_size']}, LR {c_hp['lr']:.5f}")
     classifier = TunableCNN(**c_arch, dropout=c_hp["dropout"]).to(device)
-    crit_c = BCEWithLogitsLoss()
+    crit_c = BCEWithLogitsLoss(pos_weight=pos_weight)
     opt_c = optim.AdamW(classifier.parameters(), lr=c_hp["lr"], weight_decay=c_hp["weight_decay"])
     
     dl_c_train = DataLoader(ds_class_train, batch_size=c_hp["batch_size"], shuffle=True, num_workers=NUM_WORKERS, pin_memory=False, persistent_workers=True)
