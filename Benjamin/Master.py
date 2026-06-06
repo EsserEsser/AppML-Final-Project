@@ -426,7 +426,7 @@ def main():
             return best_acc
 
         c_study = optuna.create_study(direction="maximize", pruner=optuna.pruners.MedianPruner(n_warmup_steps=2))
-        c_study.optimize(class_objective, n_trials=ARCH_OPTUNA_TRIALS_C, show_progress_bar=True)
+        c_study.optimize(class_objective, n_trials=ARCH_OPTUNA_TRIALS_C, show_progress_bar=True, catch=(RuntimeError,))
         
         c_arch = {k: c_study.best_params[k] for k in c_arch.keys()}
         if RUN_JOINT_SEARCH_C: c_hp = {k: c_study.best_params[k] for k in c_hp.keys()}
@@ -499,7 +499,7 @@ def main():
             return best_mse
 
         r_study = optuna.create_study(direction="minimize", pruner=optuna.pruners.MedianPruner(n_warmup_steps=2))
-        r_study.optimize(reg_objective, n_trials=ARCH_OPTUNA_TRIALS_R, show_progress_bar=True)
+        r_study.optimize(reg_objective, n_trials=ARCH_OPTUNA_TRIALS_R, show_progress_bar=True, catch=(RuntimeError,))
         
         r_arch = {k: r_study.best_params[k] for k in r_arch.keys()}
         if RUN_JOINT_SEARCH_R: r_hp = {k: r_study.best_params[k] for k in r_hp.keys()}
