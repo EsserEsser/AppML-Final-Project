@@ -69,7 +69,7 @@ class PeopleCountDataset(Dataset):
         self.mode = mode
 
         if samples is not None:
-            self.samples = samples
+            self.samples = list(samples)
         else:
             self.samples = []
             self.root_dir = Path(root_dir)
@@ -79,7 +79,7 @@ class PeopleCountDataset(Dataset):
                         target = extract_target_from_filename(f.name)
                         self.samples.append((f, target))
                     except ValueError:
-                        pass
+                        print(f"Warning: Skipping file with invalid name format: {f.name}")
 
     def __len__(self):
         return len(self.samples)
@@ -287,7 +287,7 @@ def main():
     # Regressor Search Settings
     RUN_ARCH_TUNING_R  = True
     RUN_JOINT_SEARCH_R = True 
-    ARCH_OPTUNA_TRIALS_R = 30
+    ARCH_OPTUNA_TRIALS_R = 50
     ARCH_OPTUNA_EPOCHS_R = 10
     ARCH_TRAIN_SAMPLES_R = 3000
     
@@ -298,13 +298,13 @@ def main():
     # Classifier Search Settings
     RUN_ARCH_TUNING_C  = True
     RUN_JOINT_SEARCH_C = True 
-    ARCH_OPTUNA_TRIALS_C = 30
+    ARCH_OPTUNA_TRIALS_C = 50
     ARCH_OPTUNA_EPOCHS_C = 10
     ARCH_TRAIN_SAMPLES_C = 3000
 
     # Classifier Final Training Settings
     EPOCHS_C   = 40
-    PATIENCE_C = 7
+    PATIENCE_C = 10
 
     # Defaults (Overwritten by Optuna if RUN_ARCH_TUNING is True)
     c_arch = {"num_conv_blocks": 4, "base_filters": 32, "filter_scale": 2.0, "double_conv": True, "fc_hidden": 128, "use_extra_fc": False}
@@ -347,6 +347,10 @@ def main():
     # ── 1. Data Prep & EDA ─────────────────────────────
     print("\n--- Phase 1: Data Preparation ---")
     full_dataset_raw = PeopleCountDataset(DATA_DIR, transform=None)
+    #print first 10 entries of full dataset:
+    print("Sample entries from Full Dataset:")
+    for i in range(10):
+        print(f"  {full_dataset_raw.samples[i][0].name}: Target = {full_dataset_raw.samples[i][1]}")
     all_samples = full_dataset_raw.samples
 
     # EDA: Target Distribution Plot
@@ -365,9 +369,8 @@ def main():
 
     random.shuffle(all_samples)
     val_size = int(len(all_samples) * VAL_SPLIT)
-    train_size = len(all_samples) - val_size
-    train_samples = all_samples[:train_size]
-    val_samples = all_samples[train_size:]
+    train_samples = all_samples[val_size:]
+    val_samples = all_samples[:val_size]
 
     train_reg_samples = [s for s in train_samples if s[1] > 0]
     val_reg_samples = [s for s in val_samples if s[1] > 0]
@@ -381,13 +384,19 @@ def main():
     ds_reg_train = PeopleCountDataset(samples=train_reg_samples, transform=train_transform, mode="regress")
     ds_reg_val   = PeopleCountDataset(samples=val_reg_samples, transform=val_transform, mode="regress")
 
+    #print first 10 entries of val dataset:
+    print("\nSample entries from Validation Set:")
+    for i in range(10):
+        print(f"  {val_samples[i][0].name}: Target = {val_samples[i][1]}")
+
+
     # ── 2. Classifier Optuna ─────────────────────────────
     print("\n--- Phase 2: Tuning Classifier ---")
     if RUN_ARCH_TUNING_C:
         def class_objective(trial):
             nb = trial.suggest_int("num_conv_blocks", 3, 7)
             bf = trial.suggest_categorical("base_filters", [32, 64, 128])
-            fs = trial.suggest_categorical("filter_scale", [1.0, 1.5, 2.0, 2.5])
+            fs = trial.suggest_categorical("filter_scale", [1.5, 2.0, 2.5])
             dc = trial.suggest_categorical("double_conv", [True, False])
             fc = trial.suggest_categorical("fc_hidden", [12, 32, 64, 128, 256, 512])
             xf = trial.suggest_categorical("use_extra_fc", [True, False])
@@ -400,7 +409,7 @@ def main():
             bz = trial.suggest_categorical("batch_size", [4, 16, 32, 64]) if RUN_JOINT_SEARCH_C else c_hp["batch_size"]
 
             m = TunableCNN(nb, bf, fs, dc, fc, xf, dr).to(device)
-            crit = BCEWithLogitsLoss(pos_weight=pos_weight)
+            crit = BCEWithLogitsLoss()
             opt = optim.AdamW(m.parameters(), lr=lr, weight_decay=wd)
             
 
@@ -434,7 +443,7 @@ def main():
     # Train Final Classifier
     print(f"\nTraining Final Classifier with: Batch {c_hp['batch_size']}, LR {c_hp['lr']:.5f}")
     classifier = TunableCNN(**c_arch, dropout=c_hp["dropout"]).to(device)
-    crit_c = BCEWithLogitsLoss(pos_weight=pos_weight)
+    crit_c = BCEWithLogitsLoss()
     opt_c = optim.AdamW(classifier.parameters(), lr=c_hp["lr"], weight_decay=c_hp["weight_decay"])
     
     dl_c_train = DataLoader(ds_class_train, batch_size=c_hp["batch_size"], shuffle=True, num_workers=NUM_WORKERS, pin_memory=False, persistent_workers=True)
@@ -482,8 +491,8 @@ def main():
 
             subset_len = min(ARCH_TRAIN_SAMPLES_R, len(ds_reg_train))
             subset_ds = torch.utils.data.Subset(ds_reg_train, torch.randperm(len(ds_reg_train))[:subset_len])
-            val_subset_len = min(1000, len(ds_class_val))  # cap it
-            val_subset = torch.utils.data.Subset(ds_class_val, torch.randperm(len(ds_class_val))[:val_subset_len])
+            val_subset_len = min(1000, len(ds_reg_val))  # cap it
+            val_subset = torch.utils.data.Subset(ds_reg_val, torch.randperm(len(ds_reg_val))[:val_subset_len])
             loader   = DataLoader(subset_ds,  batch_size=bz, shuffle=True,  
                                 num_workers=NUM_WORKERS, pin_memory=False, persistent_workers=True)
             v_loader = DataLoader(val_subset, batch_size=bz, shuffle=False, 

@@ -285,7 +285,7 @@ def main():
     LR          = 9.180109604625473e-05
     WEIGHT_DECAY = 0.0004282198922963024
     DROPOUT     = 0.26612494072338866
-    NUM_CONV_BLOCKS = 4
+    NUM_CONV_BLOCKS = 5
     BASE_FILTERS    = 64
     FILTER_SCALE    = 2.0
     DOUBLE_CONV     = True
@@ -529,6 +529,14 @@ def main():
         print("\nBest architecture params:")
         for k, v in best_arch.items():
             print(f"  {k}: {v}")
+
+        NUM_CONV_BLOCKS = best_arch["num_conv_blocks"]
+        BASE_FILTERS = best_arch["base_filters"]
+        FILTER_SCALE = best_arch["filter_scale"]
+        DOUBLE_CONV = best_arch["double_conv"]
+        FC_HIDDEN = best_arch["fc_hidden"]
+        USE_EXTRA_FC = best_arch["use_extra_fc"]
+        DROPOUT = best_arch["arch_dropout"]
 
         model = TunableCNN_reg(
             num_conv_blocks=best_arch["num_conv_blocks"],
