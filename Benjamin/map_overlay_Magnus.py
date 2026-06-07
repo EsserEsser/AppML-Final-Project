@@ -13,7 +13,7 @@ import matplotlib.colors as mcolors
 
 # ── Config ────────────────────────────────────────────────────
 RESULTS_PATH   = r"Benjamin\output\validation_results.txt"
-MAP_IMAGE_PATH = r"path\to\your\map_image.jpg"          # ← UPDATE THIS
+MAP_IMAGE_PATH = r"Data/Comparison.jpg"          # ← UPDATE THIS
 OUTPUT_DIR     = r"Benjamin\output"
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
