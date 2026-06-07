@@ -20,3 +20,5 @@ bayesian-optimization
 optuna
 shap
 scikeras
+jupyter
+torch-directml
