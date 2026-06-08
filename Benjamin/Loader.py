@@ -11,6 +11,7 @@ import os
 import re
 import random
 from pathlib import Path
+from scipy.stats import gaussian_kde
 
 import numpy as np
 import matplotlib
@@ -332,7 +333,7 @@ def main():
     # Classifier Search Settings
     CLASSIFIER_PTH = r"Benjamin\best_model_full.pth"  # Set to .pth path to skip tuning and training
 
-    REGRESSOR_PTH = r"Benjamin\output\best_reg.pth"  # Set to .pth path to skip tuning and training
+    REGRESSOR_PTH = r"Benjamin\output\best_reg_Loader.pth"  # Set to .pth path to skip tuning and training
 
     # Defaults (Overwritten by Optuna if RUN_ARCH_TUNING is True)
     c_arch = {"num_conv_blocks": 4, "base_filters": 32, "filter_scale": 2.0, "double_conv": True, "fc_hidden": 128, "use_extra_fc": False}
@@ -474,26 +475,6 @@ def main():
         print("✓ Regressor loaded successfully.")
     
 
-    # Training Curves Plot
-    fig, axes = plt.subplots(1, 2, figsize=(14, 5))
-    axes[0].plot(r_history["train_loss"], label="Train Loss", linewidth=2)
-    axes[0].plot(r_history["val_loss"],   label="Val Loss",   linewidth=2)
-    axes[0].set_xlabel("Epoch"); axes[0].set_ylabel("MSE Loss")
-    axes[0].set_title("Regressor Loss Curves"); axes[0].legend(); axes[0].grid(True, alpha=0.3)
-    axes[1].plot(r_history["train_mae"], label="Train MAE", linewidth=2)
-    axes[1].plot(r_history["val_mae"],   label="Val MAE",   linewidth=2)
-    axes[1].set_xlabel("Epoch"); axes[1].set_ylabel("Mean Absolute Error")
-    axes[1].set_title("Regressor MAE Curves"); axes[1].legend(); axes[1].grid(True, alpha=0.3)
-    plt.tight_layout()
-    plt.savefig(os.path.join(OUTPUT_DIR, "regressor_training_curves.png"), dpi=150)
-    plt.close()
-    
-    
-    plt.tight_layout()
-    plt.savefig(os.path.join(OUTPUT_DIR, "classifier_training_curves.png"), dpi=150)
-    plt.close()
-
-
 # ── 4. Pipeline Eval & Analytics ─────────────────────────────
     print("\n--- Phase 4: Pipeline Evaluation ---")
     ds_pipe_val = PeopleCountDataset(samples=val_samples, transform=val_transform, mode="regress")
@@ -571,6 +552,7 @@ def main():
     print(f"  MAE: {reg_mae_cls:.4f}")
     print(f"  R² : {reg_r2_cls:.4f}")
 
+
     # --- Confusion Matrix (Classifier) ---
     from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
     cm = confusion_matrix(all_class_targets, all_class_preds)
@@ -607,12 +589,24 @@ def main():
     cls_rec = recall_score(all_class_targets, all_class_preds, average='binary')
     cls_f1  = f1_score(all_class_targets, all_class_preds, average='binary')
 
+    #print Matthews correlation coefficient (MCC) which is a better metric for imbalanced binary classification
+    from sklearn.metrics import matthews_corrcoef
+    cls_mcc = matthews_corrcoef(all_class_targets, all_class_preds)
+
     print("CLASSIFIER (Binary Occupancy):")
     print(f"  Accuracy:  {cls_acc:.4f}")
     print(f"  Precision: {cls_pre:.4f}")
     print(f"  Recall:    {cls_rec:.4f}")
     print(f"  F1-Score:  {cls_f1:.4f}")
+    print(f"  MCC:       {cls_mcc:.4f}")
     print("="*30)
+
+    #Print number of parameters in each model
+    num_params_class = sum(p.numel() for p in classifier.parameters())
+    num_params_reg   = sum(p.numel() for p in regressor.parameters())
+    print(f"Model Complexity:")
+    print(f"  Classifier parameters: {num_params_class:,}")
+    print(f"  Regressor parameters:  {num_params_reg:,}")
 
     
     all_preds_np   = np.array(all_preds)
@@ -629,8 +623,14 @@ def main():
 
     # Plot Pred vs Actual
     fig, ax = plt.subplots(figsize=(7, 7))
-    ax.scatter(all_targets_np, all_preds_np, alpha=0.5, edgecolors="k", linewidth=0.3, s=50)
-    lims = [min(all_targets_np.min(), all_preds_np.min()) - 1, max(all_targets_np.max(), all_preds_np.max()) + 1]
+    x = all_targets_np
+    y = all_preds_np
+    xy = np.vstack([x, y])
+    density = gaussian_kde(xy)(xy)
+    log_density = np.log(density)
+    
+    sc = ax.scatter(x, y, c=log_density, cmap="viridis", alpha=1, edgecolors="none", s=50)
+    lims = [min(x.min(), y.min()) - 1, max(x.max(), y.max()) + 1]
     ax.plot(lims, lims, "r--", linewidth=1.5, label="Perfect prediction")
     ax.set_xlabel("Actual People Count")
     ax.set_ylabel("Predicted People Count")
@@ -638,6 +638,32 @@ def main():
     ax.legend(); ax.grid(True, alpha=0.3)
     plt.tight_layout()
     plt.savefig(os.path.join(OUTPUT_DIR, "pipeline_pred_vs_actual.png"), dpi=150)
+    plt.close()
+
+
+    #Loglog plot of pred vs actual with colormap based on density of points (darker = more points)
+    fig, ax = plt.subplots(figsize=(7, 7))
+    
+    x = all_targets_np + 1
+    y = all_preds_np + 1
+    xy = np.vstack([np.log(x), np.log(y)])
+    density = gaussian_kde(xy)(xy)
+    log_density = np.log(density)  # compress the range so sparse points get more color variation
+
+    
+    sc = ax.scatter(x, y, c=log_density, cmap="viridis", alpha=1, edgecolors="none", s=50)
+    
+    lims = [min(x.min(), y.min()), max(x.max(), y.max())]
+    ax.plot(lims, lims, "r--", linewidth=1.5, label="Perfect prediction")
+    ax.set_xlabel("Actual People Count + 1")   
+    ax.set_ylabel("Predicted People Count + 1")
+    ax.set_title("Predicted vs Actual (Log-Log Scale, Full Pipeline)")
+    ax.set_xscale("log")
+    ax.set_yscale("log")
+    
+    ax.legend(); ax.grid(True, alpha=0.3, which="both")
+    plt.tight_layout()
+    plt.savefig(os.path.join(OUTPUT_DIR, "pipeline_pred_vs_actual_loglog.png"), dpi=150)
     plt.close()
 
     # Plot Error Analysis
