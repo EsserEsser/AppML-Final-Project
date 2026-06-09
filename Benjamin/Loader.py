@@ -404,6 +404,10 @@ def main():
     train_reg_samples = [s for s in train_samples if s[1] > 0]
     val_reg_samples = [s for s in val_samples if s[1] > 0]
 
+    #print size of train and val sets:
+    print(f"Training samples: {len(train_samples)} (of which {len(train_reg_samples)} have targets > 0)")
+    print(f"Validation samples: {len(val_samples)} (of which {len(val_reg_samples)} have targets > 0)")
+
     n_neg = len([s for s in train_samples if s[1] == 0])
     n_pos = len([s for s in train_samples if s[1] > 0])
     pos_weight = torch.tensor([n_neg / n_pos]).to(device) #Punishes false negatives more than false positives instead of balancing dataset
@@ -693,6 +697,10 @@ def main():
     print(f"  Within ±1 person:      {(abs_errors <= 1).mean()*100:.1f}%")
     print(f"  Within ±2 people:      {(abs_errors <= 2).mean()*100:.1f}%")
 
+    #print predicted total population vs true total population for validation set
+    print("\nPredicted vs True Population for Validation Set:")
+    print(f"  Actual total population: {all_targets_np.sum():.0f}")
+    print(f"  Predicted total population: {all_preds_np.sum():.0f}")
 
 if __name__ == "__main__":
     import torch.multiprocessing as mp

@@ -346,10 +346,6 @@ def main():
     c_arch = {"num_conv_blocks": 4, "base_filters": 32, "filter_scale": 2.0, "double_conv": True, "fc_hidden": 128, "use_extra_fc": False}
     c_hp   = {"lr": 1e-4, "weight_decay": 1e-4, "batch_size": 32, "dropout": 0.3}
 
-    r_arch = {"num_conv_blocks": 6, "base_filters": 32, "filter_scale": 1.5, "double_conv": True, "fc_hidden": 512, "use_extra_fc": True}
-    r_hp   = {"lr": 2.5942718968162576e-05, "weight_decay": 5.938331747402042e-06, "batch_size": 16, "dropout": 0.49920211039346196}
-
-    #Claude guessing HPs
     r_arch = {"num_conv_blocks": 4, "base_filters": 32, "filter_scale": 2.0, "double_conv": True, "fc_hidden": 256, "use_extra_fc": False}
     r_hp   = {"lr": 3e-4, "weight_decay": 1e-4, "batch_size": 16, "dropout": 0.3}
 
@@ -439,7 +435,7 @@ def main():
             "lr": 7.52374288453485e-05,
             "dropout": 0.18318092164684585,
             "weight_decay": 6.672367170464208e-05,
-            "batch_size": 64,
+            "batch_size": 32,
             "optimizer": "Adam"
         }
 

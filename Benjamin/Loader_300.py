@@ -338,11 +338,7 @@ def main():
     # Defaults (Overwritten by Optuna if RUN_ARCH_TUNING is True)
     c_arch = {"num_conv_blocks": 4, "base_filters": 32, "filter_scale": 2.0, "double_conv": True, "fc_hidden": 128, "use_extra_fc": False}
     c_hp   = {"lr": 1e-4, "weight_decay": 1e-4, "batch_size": 16, "dropout": 0.3}
-
-    r_arch = {"num_conv_blocks": 6, "base_filters": 32, "filter_scale": 1.5, "double_conv": True, "fc_hidden": 512, "use_extra_fc": True}
-    r_hp   = {"lr": 2.5942718968162576e-05, "weight_decay": 5.938331747402042e-06, "batch_size": 16, "dropout": 0.49920211039346196}
-
-    #Claude guessing HPs
+    
     r_arch = {"num_conv_blocks": 4, "base_filters": 32, "filter_scale": 2.0, "double_conv": True, "fc_hidden": 256, "use_extra_fc": False}
     r_hp   = {"lr": 3e-4, "weight_decay": 1e-4, "batch_size": 16, "dropout": 0.3}
 
@@ -408,6 +404,10 @@ def main():
 
     train_reg_samples = [s for s in train_samples if s[1] > 0]
     val_reg_samples = [s for s in val_samples if s[1] > 0]
+
+    #print size of train and val sets:
+    print(f"Training samples: {len(train_samples)} of which {len(train_reg_samples)} have targets > 0")
+    print(f"Validation samples: {len(val_samples)} of which {len(val_reg_samples)} have targets > 0")
 
     n_neg = len([s for s in train_samples if s[1] == 0])
     n_pos = len([s for s in train_samples if s[1] > 0])
@@ -548,6 +548,12 @@ def main():
     reg_mse_cls = np.mean((reg_preds_cls - reg_targets_cls)**2)
     reg_mae_cls = mean_absolute_error(reg_targets_cls, reg_preds_cls)
     reg_r2_cls  = r2_score(reg_targets_cls, reg_preds_cls)
+
+    #print parameter counts for both models
+    classifier_params = sum(p.numel() for p in classifier.parameters())
+    regressor_params = sum(p.numel() for p in regressor.parameters())
+    print(f"Classifier Parameters: {classifier_params:,}")
+    print(f"Regressor Parameters: {regressor_params:,}")
 
     print("REGRESSOR (Truly Occupied, classifier bypassed — comparable to training val loss):")
     print(f"  MSE: {reg_mse_isolated:.4f}")
@@ -691,6 +697,10 @@ def main():
     print(f"  Within ±1 person:      {(abs_errors <= 1).mean()*100:.1f}%")
     print(f"  Within ±2 people:      {(abs_errors <= 2).mean()*100:.1f}%")
 
+    #Predicted total Population vs Actual total Population in validation set
+    print(f"\nTotal Population in Validation Set:")
+    print(f"  Actual total population: {all_targets_np.sum():.0f}")
+    print(f"  Predicted total population: {all_preds_np.sum():.0f}")
 
 if __name__ == "__main__":
     import torch.multiprocessing as mp
